@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-from PIL import Image
+# from PIL import Image
 
 import helpers as h
 
@@ -23,7 +23,7 @@ cmnames = list(data.cmname.unique())
 mktnames = list(data.mktname.unique())
 
 
-image = Image.open('pakistan-flag.JPG')
+# image = Image.open('pakistan-flag.JPG')
 # st.image(image, use_column_width=True)
 
 st.write(
