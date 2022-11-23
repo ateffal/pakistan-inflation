@@ -1,7 +1,6 @@
 pandas
 streamlit
 altair
-PIL
 seaborn
 matplotlib
 tensorflow
