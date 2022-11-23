@@ -4,4 +4,4 @@ altair
 seaborn
 matplotlib
 tensorflow
-sklearn
+scikit-learn
