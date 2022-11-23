@@ -1,38 +1,96 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import altair as alt
+from PIL import Image
 
-"""
-# Welcome to Streamlit!
-
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
-
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
-
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+import helpers as h
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+prices_terror_attacks = pd.read_excel(
+    'data/wfp_food_prices_pakistan_restructured.xlsx', sheet_name='wfp_food_prices_cmname')
+prices_terror_attacks = prices_terror_attacks.dropna()
+# prices_terror_attacks
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+crimes = pd.read_excel(
+    'data/year_wise_crime_report_v20221114.xlsx', sheet_name='monthly_calculated')
 
-    points_per_turn = total_points / num_turns
+data = prices_terror_attacks.set_index('date').join(
+    crimes[['date', 'monthly_crimes_calculated_with_noise']].set_index('date'), how='left').reset_index()
+data = data.sort_values(['cmname_mktname', 'date'])
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+# prediction_nnet(cmname, mktname, features, target, n_obs = None, lags = 6)
+cmnames = list(data.cmname.unique())
+mktnames = list(data.mktname.unique())
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+
+image = Image.open('pakistan-flag.JPG')
+# st.image(image, use_column_width=True)
+
+st.write(
+    """
+    # Dashboard Building For Growing Inflation in Pakistan
+    ***
+    """
+
+
+)
+
+st.sidebar.header('Choose a comodity')
+
+comodity = st.sidebar.selectbox(
+    'Choose a comodity', cmnames)
+
+
+st.sidebar.header('Choose a market')
+
+market = st.sidebar.selectbox(
+    'Choose a market', mktnames)
+
+
+# selected_data = h.select_data(data, comodity, market)
+
+sugar_quetta_data = h.select_data(data, comodity, market)
+
+vars_features = ['price', 'crimes_per_100K_population'] #['price', 'monthly_crimes_calculated_with_noise'] 
+var_target = 'crimes_per_100K_population'
+
+
+selected_data, predictions, RMSE = h.prediction_nnet_dense_layers(sugar_quetta_data, 
+                                                   features = vars_features, 
+                                                   target = var_target, 
+                                                   lags = 6,
+                                                   scale_data=True)
+st.write(
+    """
+    # Predictions
+    ***
+    """
+)
+
+
+st.line_chart(predictions[[predictions.columns[0],predictions.columns[1]]])
+
+st.dataframe(predictions)
+
+
+st.write(
+    """
+    # Selected data : 
+    ***
+    """
+)
+
+st.write('Comodity : ' + comodity, ' --- ' + market +
+         '--- ' + str(len(selected_data)) + ' records')
+
+st.dataframe(selected_data, 10000, 500)
+
+
+
+
+
+# # Using object notation
+# add_selectbox = st.sidebar.selectbox(
+#     "How would you like to be contacted?",
+#     ("Email", "Home phone", "Mobile phone")
+# )
