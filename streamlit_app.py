@@ -23,7 +23,7 @@ cmnames = list(data.cmname.unique())
 mktnames = list(data.mktname.unique())
 
 cols = ['price', 'price_var', 'crimes_annual_percent_change', 'crimes_per_100K_population',
-            'terror_attacks_casualties', 'monthly_crimes_calculated_with_noise']
+        'terror_attacks_casualties', 'monthly_crimes_calculated_with_noise']
 
 crimes_cols = ['terror_attacks_casualties',
                'crimes_per_100K_population',
@@ -66,13 +66,19 @@ st.sidebar.header('Choose a market')
 market = st.sidebar.selectbox(
     'Choose a market', mktnames)
 
+choosen_model = st.sidebar.selectbox(
+    'Choose model ', ['Simple NNET', 'RNN', 'LSTM'])
+
 
 # selected_data = h.select_data(data, comodity, market)
 
 sugar_quetta_data = h.select_data(data, comodity, market)
 
 # ['price', 'monthly_crimes_calculated_with_noise']
-vars_features = options + [var_target] # ['price'] + [var_target]
+if not (var_target in options):
+    vars_features = options + [var_target]  # ['price'] + [var_target]
+else:
+    vars_features = options
 # var_target = 'crimes_per_100K_population'
 
 
@@ -112,3 +118,9 @@ st.dataframe(selected_data, 10000, 500)
 #     "How would you like to be contacted?",
 #     ("Email", "Home phone", "Mobile phone")
 # )
+
+if choosen_model == 'RNN':
+    predictions_rnn = h.predict_rnn(
+        sugar_quetta_data, features=vars_features, target=var_target)
+    st.write(" # RNN predictions ")
+    st.write(predictions_rnn)

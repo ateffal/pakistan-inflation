@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from sklearn.metrics import mean_squared_error
+import numpy as np
 
 def unscale_data(df_, mins, maxs):
     df = df_.copy()
@@ -190,3 +191,187 @@ def make_multistep_target(ts, steps):
         {f'y_step_{i + 1}': ts.shift(-i)
          for i in range(steps)},
         axis=1)
+#############################################################################################################
+
+def predict_rnn(data_cmname_mktname_, features, target, lags = 6, nodes_layers=[32, 32, 32], scale_data = True):
+
+    n = len(data_cmname_mktname_)
+    n_train = int(n * 0.6)
+    n_validation = int(n * 0.2)
+    n_test = n - n_train - n_validation
+    train_data = data_cmname_mktname_[0:n_train]
+    validation_data = data_cmname_mktname_[n_train : (n_train + n_validation)]
+    test_data = data_cmname_mktname_[(n_train + n_validation):]
+
+    lags = 6
+    w2 = WindowGenerator(input_width=lags, label_width=1, shift=1,train_df = train_data, val_df=validation_data, 
+                     test_df = test_data, label_columns=[target])
+
+    # Set the learning rate
+    learning_rate = 1e-3
+
+    # set epochs
+    epochs = 300
+
+    # input shape
+    input_shape_ = (lags, train_data.shape[1])
+
+    # Build the RNN Model
+    rnn_model = tf.keras.models.Sequential([
+    tf.keras.layers.SimpleRNN(128, return_sequences=False, input_shape=input_shape_),
+    tf.keras.layers.Dense(1)
+    ])
+
+    # Set the optimizer 
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
+    # Set the training parameters
+    rnn_model.compile(loss=tf.keras.losses.MeanSquaredError(),
+              optimizer=optimizer,
+              metrics=[tf.keras.metrics.MeanAbsoluteError()])
+
+    # Train the model
+    history = rnn_model.fit(w2.train,validation_data=w2.val, epochs=epochs, verbose=0)
+
+    pred_rnn = np.concatenate((rnn_model.predict(w2.train)[:,0], 
+                               rnn_model.predict(w2.test)[:,0], rnn_model.predict(w2.val)[:,0]))
+    w2_test = list(w2.test.as_numpy_iterator())[0][1][:,0,0]
+
+    # pred_df = pd.DataFrame({'obs' : w2_test[0][1][:,0,0], 'pred nnet' : pred_nnet, 'pred rnn' : pred_rnn, 'pred lstm' : pred_lstm})
+
+    return pred_rnn
+
+
+
+class WindowGenerator():
+    def __init__(self, input_width, label_width, shift, train_df, val_df, test_df, label_columns=None):
+        # Store the raw data.
+        self.train_df = train_df
+        self.val_df = val_df
+        self.test_df = test_df
+
+        # Work out the label column indices.
+        self.label_columns = label_columns
+        if label_columns is not None:
+            self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
+        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
+
+        # Work out the window parameters.
+        self.input_width = input_width
+        self.label_width = label_width
+        self.shift = shift
+
+        self.total_window_size = input_width + shift
+
+        self.input_slice = slice(0, input_width)
+        self.input_indices = np.arange(self.total_window_size)[self.input_slice]
+
+        self.label_start = self.total_window_size - self.label_width
+        self.labels_slice = slice(self.label_start, None)
+        self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
+
+def __repr__(self):
+    return '\n'.join([
+        f'Total window size: {self.total_window_size}',
+        f'Input indices: {self.input_indices}',
+        f'Label indices: {self.label_indices}',
+        f'Label column name(s): {self.label_columns}'])
+
+def split_window(self, features):
+  inputs = features[:, self.input_slice, :]
+  labels = features[:, self.labels_slice, :]
+  if self.label_columns is not None:
+    labels = tf.stack(
+        [labels[:, :, self.column_indices[name]] for name in self.label_columns],
+        axis=-1)
+
+  # Slicing doesn't preserve static shape information, so set the shapes
+  # manually. This way the `tf.data.Datasets` are easier to inspect.
+  inputs.set_shape([None, self.input_width, None])
+  labels.set_shape([None, self.label_width, None])
+
+  return inputs, labels
+
+WindowGenerator.split_window = split_window
+
+
+def make_dataset(self, data):
+  data = np.array(data, dtype=np.float32)
+  ds = tf.keras.utils.timeseries_dataset_from_array(
+      data=data,
+      targets=None,
+      sequence_length=self.total_window_size,
+      sequence_stride=1,
+      shuffle=False, # True
+      batch_size=8,)
+
+  ds = ds.map(self.split_window)
+
+  return ds
+
+WindowGenerator.make_dataset = make_dataset
+
+
+@property
+def train(self):
+  return self.make_dataset(self.train_df)
+
+@property
+def val(self):
+  return self.make_dataset(self.val_df)
+
+@property
+def test(self):
+  return self.make_dataset(self.test_df)
+
+@property
+def example(self):
+  """Get and cache an example batch of `inputs, labels` for plotting."""
+  result = getattr(self, '_example', None)
+  if result is None:
+    # No example batch was found, so get one from the `.train` dataset
+    result = next(iter(self.train))
+    # And cache it for next time
+    self._example = result
+  return result
+
+WindowGenerator.train = train
+WindowGenerator.val = val
+WindowGenerator.test = test
+WindowGenerator.example = example
+
+
+################################################ plot method ###########################################################
+def plot(self, model=None, plot_col='monthly_crimes_calculated_with_noise', max_subplots=3):
+  inputs, labels = self.example
+  plt.figure(figsize=(12, 8))
+  plot_col_index = self.column_indices[plot_col]
+  max_n = min(max_subplots, len(inputs))
+  for n in range(max_n):
+    plt.subplot(max_n, 1, n+1)
+    plt.ylabel(f'{plot_col} [normed]')
+    plt.plot(self.input_indices, inputs[n, :, plot_col_index],
+             label='Inputs', marker='.', zorder=-10)
+
+    if self.label_columns:
+      label_col_index = self.label_columns_indices.get(plot_col, None)
+    else:
+      label_col_index = plot_col_index
+
+    if label_col_index is None:
+      continue
+
+    plt.scatter(self.label_indices, labels[n, :, label_col_index],
+                edgecolors='k', label='Labels', c='#2ca02c', s=64)
+    if model is not None:
+      predictions = model(inputs)
+      plt.scatter(self.label_indices, predictions[n, :, label_col_index],
+                  marker='X', edgecolors='k', label='Predictions',
+                  c='#ff7f0e', s=64)
+
+    if n == 0:
+      plt.legend()
+
+  plt.xlabel('Time')
+
+WindowGenerator.plot = plot
