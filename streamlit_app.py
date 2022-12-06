@@ -4,6 +4,7 @@ import altair as alt
 # from PIL import Image
 
 import helpers as h
+import compare_models as cm
 
 
 prices_terror_attacks = pd.read_excel(
@@ -66,8 +67,8 @@ st.sidebar.header('Choose a market')
 market = st.sidebar.selectbox(
     'Choose a market', mktnames)
 
-choosen_model = st.sidebar.selectbox(
-    'Choose model ', ['Simple NNET', 'RNN', 'LSTM'])
+choosen_model = st.sidebar.multiselect(
+    'Compare models :', ['NNET', 'RNN', 'LSTM'], ['NNET', 'RNN'])
 
 
 # selected_data = h.select_data(data, comodity, market)
@@ -113,14 +114,19 @@ st.write('Comodity : ' + comodity, ' --- ' + market +
 st.dataframe(selected_data, 10000, 500)
 
 
-# # Using object notation
-# add_selectbox = st.sidebar.selectbox(
-#     "How would you like to be contacted?",
-#     ("Email", "Home phone", "Mobile phone")
-# )
+st.write(
+    """
+    # Compare models by splitting data into train, validation and test : 
+    ***
+    """
+)
 
-if choosen_model == 'RNN':
-    predictions_rnn = h.predict_rnn(
-        sugar_quetta_data, features=vars_features, target=var_target)
-    st.write(" # RNN predictions ")
-    st.write(predictions_rnn)
+predictions_2, rmses = cm.compare_models(sugar_quetta_data, 
+                                                vars_features, var_target, choosen_model)
+
+st.line_chart(predictions_2)
+
+for m in choosen_model:
+    st.text('Root Mean Squared Error of ' + m + ' : ' + str(rmses[m]))
+
+st.dataframe(predictions_2)
