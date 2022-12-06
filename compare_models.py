@@ -19,6 +19,7 @@ def compare_models(data_rnn_, vars_to_use_, var_to_predict_, models, lags = 6, l
     test_data = data_rnn[(n_train + n_validation):]
 
     w2 = WindowGenerator(input_width=lags, label_width=1, shift=1,train_df = train_data, val_df=validation_data, 
+                     test_df = test_data, label_columns=[var_to_predict_])
 
     # input shape
     input_shape_ = (lags, train_data.shape[1])
